@@ -1,49 +1,51 @@
 # docker-compose.yml — MyPlaythrough
 #
-# Levanta dos servicios con un solo comando: docker compose up --build
-#   - db:     PostgreSQL 16 con datos persistentes en un volumen Docker.
-#   - server: el servidor Express conectado a la base de datos.
+# Con este archivo levanto toda la infraestructura del backend con un solo comando:
+#   docker compose up --build
 #
-# El frontend (React/Vite) sigue corriéndose localmente con "npm run dev"
-# porque en desarrollo es más cómodo tener el hot-reload nativo de Vite.
+# Eso arranca dos cosas: la base de datos PostgreSQL y el servidor Express.
+# El frontend (React) lo sigo ejecutando aparte con "npm run dev" en /client,
+# porque así tengo el hot-reload de Vite y es más cómodo para desarrollar.
 #
-# Para la evaluación, el evaluador solo necesita:
+# Para que el corrector pueda probar la app solo necesita:
 #   1. docker compose up --build
-#   2. npm run dev en /client
+#   2. npm run dev  (dentro de /client)
 #
-# Las tablas se crean automáticamente la primera vez gracias al montaje
-# de docs/schema.sql en /docker-entrypoint-initdb.d/ del contenedor de Postgres.
+# Las tablas se crean solas la primera vez, porque monto el archivo
+# docs/schema.sql en una carpeta especial de Postgres que ejecuta los
+# scripts .sql automáticamente cuando la base de datos está vacía.
 
 services:
 
   # ------------------------------------------------------------------
-  # Base de datos PostgreSQL
+  # Base de datos
   # ------------------------------------------------------------------
   db:
+    # Uso la versión "alpine" de la imagen porque es más ligera.
     image: postgres:16-alpine
-    # alpine es la variante más ligera de la imagen oficial de Postgres.
     container_name: myplaythrough_db
     restart: unless-stopped
     environment:
-      # Estas variables las lee la imagen oficial de Postgres al iniciarse
-      # para crear la BD y el usuario por primera vez.
+      # Estas tres variables son las que la imagen de Postgres necesita
+      # para crear la base de datos y el usuario la primera vez.
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin1234
       POSTGRES_DB: myplaythrough
     ports:
-      # Mapeamos el puerto para poder conectarnos desde pgAdmin en el host.
+      # Expongo el puerto para poder conectarme también desde pgAdmin si quiero.
       - "5432:5432"
     volumes:
-      # Los datos de la BD se guardan en un volumen con nombre (no en el contenedor),
-      # así persisten aunque hagamos "docker compose down".
+      # Los datos de la BD se guardan en un volumen separado del contenedor,
+      # así no se pierden si hago "docker compose down" (sin el -v).
       - postgres_data:/var/lib/postgresql/data
-      # La imagen oficial de Postgres ejecuta automáticamente todos los .sql
-      # que encuentre en /docker-entrypoint-initdb.d/ la PRIMERA vez que
-      # se inicializa el volumen (cuando está vacío). Así no hace falta
-      # abrir pgAdmin ni ejecutar nada a mano.
+      # Este archivo SQL se ejecuta automáticamente la primera vez que el
+      # volumen está vacío, y crea todas las tablas sin que yo tenga que
+      # hacer nada a mano en pgAdmin.
       - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
-      # El servidor espera a que Postgres esté listo antes de arrancar.
+      # Antes de arrancar el servidor, compruebo que Postgres ya está listo
+      # para aceptar conexiones. Si no hiciera esto, Express intentaría
+      # conectarse antes de que la BD estuviera disponible y fallaría.
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
@@ -61,8 +63,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Sobreescribimos las variables de entorno del servidor para que
-      # apunten al servicio "db" (nombre del servicio = hostname en Docker).
+      # Aquí le digo al servidor que la base de datos está en el servicio
+      # llamado "db" (Docker lo resuelve como hostname internamente).
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: postgres
@@ -75,11 +77,12 @@ services:
       RAWG_API_KEY: 8ea97647a110478f953dcb6e58be0523
     depends_on:
       db:
+        # Con "service_healthy" me aseguro de que el servidor no arranca
+        # hasta que el healthcheck de Postgres pase. Así evito errores de
+        # conexión al inicio.
         condition: service_healthy
-        # "service_healthy" espera al healthcheck de postgres antes de arrancar Express.
-        # Sin esto, el servidor intentaría conectarse a la BD antes de que estuviera lista.
 
 volumes:
-  # Volumen con nombre gestionado por Docker. Los datos sobreviven a "docker compose down".
-  # Para borrar los datos completamente: docker compose down -v
+  # Volumen gestionado por Docker. Los datos sobreviven a "docker compose down".
+  # Si quiero borrarlos del todo, uso: docker compose down -v
   postgres_data:
