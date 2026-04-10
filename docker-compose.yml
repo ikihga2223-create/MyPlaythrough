@@ -41,8 +41,10 @@ services:
       # Este archivo SQL se ejecuta automáticamente la primera vez que el
       # volumen está vacío, y crea todas las tablas sin que yo tenga que
       # hacer nada a mano en pgAdmin. Incluye usuarios.avatar_id (avatares robot).
-      # Si ya tenías un volumen antiguo sin avatar_id: docker compose exec db psql -U postgres -d myplaythrough -f - < docs/add-avatar-id-usuarios.sql
-      # (o ejecuta ese SQL a mano en pgAdmin) y luego reinicia el servidor.
+      # Volumen antiguo (BD ya creada antes): los .sql de initdb solo corren la 1ª vez.
+      # Tras un pull con cambios de esquema: desde la raíz del repo, con contenedores arriba:
+      #   Get-Content docs/add-social-features.sql -Raw | docker compose exec -T db psql -U postgres -d myplaythrough
+      # O en local con server/.env apuntando al puerto 5432: cd server && npm run migrate:social
       - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       # Antes de arrancar el servidor, compruebo que Postgres ya está listo
