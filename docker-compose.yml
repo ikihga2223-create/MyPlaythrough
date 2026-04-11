@@ -12,7 +12,7 @@
 #   2. npm run dev  (dentro de /client)
 #
 # Las tablas se crean solas la primera vez, porque monto el archivo
-# docs/schema.sql en una carpeta especial de Postgres que ejecuta los
+# docs/sql/schema.sql en una carpeta especial de Postgres que ejecuta los
 # scripts .sql automáticamente cuando la base de datos está vacía.
 
 services:
@@ -43,9 +43,9 @@ services:
       # hacer nada a mano en pgAdmin. Incluye usuarios.avatar_id (avatares robot).
       # Volumen antiguo (BD ya creada antes): los .sql de initdb solo corren la 1ª vez.
       # Tras un pull con cambios de esquema: desde la raíz del repo, con contenedores arriba:
-      #   Get-Content docs/add-social-features.sql -Raw | docker compose exec -T db psql -U postgres -d myplaythrough
+      #   Get-Content docs/sql/add-social-features.sql -Raw | docker compose exec -T db psql -U postgres -d myplaythrough
       # O en local con server/.env apuntando al puerto 5432: cd server && npm run migrate:social
-      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./docs/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       # Antes de arrancar el servidor, compruebo que Postgres ya está listo
       # para aceptar conexiones. Si no hiciera esto, Express intentaría
